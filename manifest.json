@@ -1,10 +1,20 @@
 {
-  "name": "Hello Extensions",
-  "description": "Base Level Extension",
-  "version": "1.0",
   "manifest_version": 3,
+  "name": "Notion Image Drawer",
+  "version": "1.0",
+  "description": "Right-click an image in Notion to draw on it.",
+  "permissions": ["contextMenus", "scripting", "activeTab"],
+  "host_permissions": ["*://www.notion.so/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://www.notion.so/*"],
+      "js": ["content.js"]
+    }
+  ],
   "action": {
-    "default_popup": "hello.html",
-    "default_icon": "icon.png"
+    "default_icon":  "icon.png"
   }
 }
