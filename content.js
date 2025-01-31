@@ -32,7 +32,7 @@ function createEditButton(targetImg) {
 
     // Click event on the "Edit" button
     editButton.addEventListener("click", () => {
-        openDrawingCanvas(targetImg);
+        openTextEditor(targetImg);
     });
 
     // Remove button when mouse leaves the image
@@ -46,8 +46,7 @@ function createEditButton(targetImg) {
     });
 }
 
-// Function to open a canvas overlay on the image
-function openDrawingCanvas(targetImg) {
+function openTextEditor(targetImg) {
     if (drawingCanvas) drawingCanvas.remove(); // Remove existing canvas
 
     drawingCanvas = document.createElement("canvas");
@@ -60,43 +59,47 @@ function openDrawingCanvas(targetImg) {
     drawingCanvas.style.border = "2px solid black";
     document.body.appendChild(drawingCanvas);
 
-    ctx = drawingCanvas.getContext("2d");
+    let ctx = drawingCanvas.getContext("2d");
 
-    // Load image safely using fetch to avoid CORS issues
-    fetch(targetImg.src, { mode: "cors" })
-        .then(response => response.blob())
-        .then(blob => {
-            let img = new Image();
-            img.crossOrigin = "anonymous"; // Prevent CORS issue
-            img.src = URL.createObjectURL(blob);
-            img.onload = () => {
-                ctx.drawImage(img, 0, 0, drawingCanvas.width, drawingCanvas.height);
-            };
-        })
-        .catch(error => console.error("Failed to load image for editing:", error));
+    // Load the original image
+    let img = new Image();
+    img.crossOrigin = "anonymous";
+    img.src = targetImg.src;
+    img.onload = () => {
+        ctx.drawImage(img, 0, 0, drawingCanvas.width, drawingCanvas.height);
+    };
 
-    let isDrawing = false;
+    let textInputs = [];
 
-    // Drawing logic
-    drawingCanvas.addEventListener("mousedown", (e) => {
-        isDrawing = true;
-        ctx.beginPath();
-        ctx.moveTo(e.offsetX, e.offsetY);
-    });
+    // Click event to add text at a clicked position
+    drawingCanvas.addEventListener("click", (e) => {
+        let input = document.createElement("input");
+        input.type = "text";
+        input.placeholder = "Type text here...";
+        input.style.position = "absolute";
+        input.style.left = `${e.clientX}px`;
+        input.style.top = `${e.clientY}px`;
+        input.style.zIndex = "10001";
+        input.style.fontSize = "16px";
+        input.style.border = "none";
+        input.style.outline = "none";
+        input.style.background = "transparent";
+        input.style.color = "black";
+        input.style.fontWeight = "bold";
 
-    drawingCanvas.addEventListener("mousemove", (e) => {
-        if (isDrawing) {
-            ctx.lineTo(e.offsetX, e.offsetY);
-            ctx.stroke();
-        }
-    });
+        document.body.appendChild(input);
+        input.focus();
 
-    drawingCanvas.addEventListener("mouseup", () => {
-        isDrawing = false;
-    });
+        textInputs.push({ input, x: e.clientX, y: e.clientY });
 
-    drawingCanvas.addEventListener("mouseleave", () => {
-        isDrawing = false;
+        input.addEventListener("blur", () => {
+            if (input.value.trim() !== "") {
+                ctx.font = "20px Arial";
+                ctx.fillStyle = "black";
+                ctx.fillText(input.value, e.clientX - drawingCanvas.getBoundingClientRect().left, e.clientY - drawingCanvas.getBoundingClientRect().top);
+            }
+            input.remove();
+        });
     });
 
     // Create a "Save" button
@@ -118,36 +121,42 @@ function openDrawingCanvas(targetImg) {
 
     // Save functionality: Replace the image element
     saveButton.addEventListener("click", () => {
-        try {
-            // Convert canvas to an image URL safely
-            const imageDataURL = drawingCanvas.toDataURL("image/png");
+        textInputs.forEach(({ input, x, y }) => {
+            if (input.value.trim() !== "") {
+                ctx.font = "20px Arial";
+                ctx.fillStyle = "black";
+                ctx.fillText(input.value, x - drawingCanvas.getBoundingClientRect().left, y - drawingCanvas.getBoundingClientRect().top);
+            }
+            input.remove();
+        });
 
-            // Create a new image element to replace the original
-            let newImg = document.createElement("img");
-            newImg.src = imageDataURL;
-            newImg.width = targetImg.width;
-            newImg.height = targetImg.height;
-            newImg.style = targetImg.style.cssText; // Preserve the original styles
-            newImg.className = targetImg.className; // Preserve original classes
+        // Convert canvas to an image URL
+        const imageDataURL = drawingCanvas.toDataURL("image/png");
 
-            // Replace the original image in the DOM
-            targetImg.parentNode.replaceChild(newImg, targetImg);
+        // Create a new image element to replace the original
+        let newImg = document.createElement("img");
+        newImg.src = imageDataURL;
+        newImg.width = targetImg.width;
+        newImg.height = targetImg.height;
+        newImg.style = targetImg.style.cssText; // Preserve the original styles
+        newImg.className = targetImg.className; // Preserve original classes
 
-            // Store in localStorage for persistence
-            localStorage.setItem(targetImg.dataset.originalSrc || targetImg.src, imageDataURL);
+        // Replace the original image in the DOM
+        targetImg.parentNode.replaceChild(newImg, targetImg);
 
-            // Cleanup
-            drawingCanvas.remove();
-            saveButton.remove();
+        // Store in localStorage for persistence
+        localStorage.setItem(targetImg.dataset.originalSrc || targetImg.src, imageDataURL);
 
-            console.log("Image content fully replaced.");
-        } catch (error) {
-            console.error("Error saving image:", error);
-        }
+        // Cleanup
+        drawingCanvas.remove();
+        saveButton.remove();
+
+        console.log("Image with text saved and replaced.");
     });
 
-    console.log("Canvas opened for drawing on image:", targetImg.src);
+    console.log("Text editor opened for image:", targetImg.src);
 }
+
 
 // Function to restore edited images from localStorage after page refresh
 function restoreImages() {
